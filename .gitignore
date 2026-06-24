@@ -1,0 +1,7 @@
+node_modules/
+wrapper/node_modules/
+.env
+wrapper/.env
+lib/
+firebase-debug.log
+.firebase/
