@@ -17,9 +17,11 @@ if (!FIREBASE_WEBHOOK_URL) {
 
 // 1. Initialize WhatsApp Client
 // LocalAuth saves the session locally so you don't have to re-scan the QR code every time
+console.log('[DEBUG] Creating WhatsApp Client...');
 const client = new Client({
   authStrategy: new LocalAuth(),
   puppeteer: {
+    headless: true,
     args: [
       '--no-sandbox', 
       '--disable-setuid-sandbox',
@@ -27,18 +29,42 @@ const client = new Client({
       '--disable-accelerated-2d-canvas',
       '--no-first-run',
       '--no-zygote',
-      '--disable-gpu'
+      '--single-process',
+      '--disable-gpu',
+      '--disable-extensions',
+      '--disable-background-networking',
+      '--disable-default-apps',
+      '--disable-translate',
+      '--disable-sync'
     ]
   }
 });
 
+// Debug: track all lifecycle events
 client.on('qr', (qr) => {
+  console.log('[DEBUG] QR event fired!');
   console.log('QR RECEIVED. Please scan it with your WhatsApp mobile app:');
   qrcode.generate(qr, { small: true });
 });
 
+client.on('loading_screen', (percent, message) => {
+  console.log(`[DEBUG] Loading screen: ${percent}% - ${message}`);
+});
+
+client.on('authenticated', () => {
+  console.log('[DEBUG] Client authenticated successfully!');
+});
+
+client.on('auth_failure', (msg) => {
+  console.error('[DEBUG] Authentication failure:', msg);
+});
+
 client.on('ready', () => {
   console.log('✅ WhatsApp Client is READY and connected!');
+});
+
+client.on('disconnected', (reason) => {
+  console.log('[DEBUG] Client disconnected:', reason);
 });
 
 // 2. Intercept incoming messages and forward to Firebase
@@ -115,6 +141,21 @@ app.post('/send', async (req, res) => {
 // Start the Express server and the WhatsApp client
 app.listen(PORT, () => {
   console.log(`🚀 Express server running on port ${PORT}`);
-  console.log('Initializing WhatsApp Client...');
-  client.initialize();
+  console.log('[DEBUG] Initializing WhatsApp Client...');
+
+  // Set a timeout to detect if initialization is hanging
+  const initTimeout = setTimeout(() => {
+    console.error('[DEBUG] ⚠️ WhatsApp Client initialization is taking too long (>60s). It may be hanging.');
+    console.error('[DEBUG] This usually means Chrome cannot load WhatsApp Web properly.');
+  }, 60000);
+
+  client.initialize()
+    .then(() => {
+      clearTimeout(initTimeout);
+      console.log('[DEBUG] client.initialize() promise resolved.');
+    })
+    .catch((err) => {
+      clearTimeout(initTimeout);
+      console.error('[DEBUG] client.initialize() FAILED:', err);
+    });
 });
