@@ -1,6 +1,7 @@
 require('dotenv').config();
 const { Client, LocalAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
+const QRCode = require('qrcode');
 const express = require('express');
 const cors = require('cors');
 
@@ -49,10 +50,15 @@ const client = new Client({
   }
 });
 
+// Store the latest QR string so we can serve it via HTTP
+let latestQR = null;
+let clientReady = false;
+
 // Debug: track all lifecycle events
 client.on('qr', (qr) => {
+  latestQR = qr;
   console.log('[DEBUG] QR event fired!');
-  console.log('QR RECEIVED. Please scan it with your WhatsApp mobile app:');
+  console.log('QR RECEIVED. Scan it at: https://whatsapp-wrapper-9c6j.onrender.com/qr');
   qrcode.generate(qr, { small: true });
 });
 
@@ -69,6 +75,8 @@ client.on('auth_failure', (msg) => {
 });
 
 client.on('ready', () => {
+  clientReady = true;
+  latestQR = null;
   console.log('✅ WhatsApp Client is READY and connected!');
 });
 
@@ -125,7 +133,28 @@ client.on('message', async (msg) => {
   }
 });
 
-// 3. Expose Express API to send messages from Firebase
+// 3. Serve QR code as a scannable web page
+app.get('/qr', async (req, res) => {
+  if (clientReady) {
+    return res.send('<html><body style="display:flex;justify-content:center;align-items:center;height:100vh;background:#111;color:#0f0;font-family:monospace;font-size:2em">✅ WhatsApp is already connected!</body></html>');
+  }
+  if (!latestQR) {
+    return res.send('<html><body style="display:flex;justify-content:center;align-items:center;height:100vh;background:#111;color:#ff0;font-family:monospace;font-size:1.5em"><div style="text-align:center">⏳ Waiting for QR code...<br><small>Refresh in a few seconds</small></div></body></html>');
+  }
+  try {
+    const qrImageDataUrl = await QRCode.toDataURL(latestQR, { width: 400, margin: 2 });
+    res.send(`<html><body style="display:flex;flex-direction:column;justify-content:center;align-items:center;height:100vh;background:#111;color:#fff;font-family:monospace">
+      <h2>📱 Scan this QR code with WhatsApp</h2>
+      <img src="${qrImageDataUrl}" style="border:8px solid #fff;border-radius:12px" />
+      <p style="color:#aaa;margin-top:16px">Open WhatsApp → Settings → Linked Devices → Link a Device</p>
+      <script>setTimeout(()=>location.reload(), 20000)</script>
+    </body></html>`);
+  } catch (err) {
+    res.status(500).send('Error generating QR: ' + err.message);
+  }
+});
+
+// 4. Expose Express API to send messages from Firebase
 app.post('/send', async (req, res) => {
   try {
     const { to, text } = req.body;
