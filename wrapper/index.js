@@ -176,6 +176,13 @@ app.get('/', (req, res) => {
   res.json({ status: clientReady ? 'connected' : 'disconnected' });
 });
 
+// Keep-alive self-ping to prevent Render from sleeping on the free tier
+const RENDER_URL = process.env.RENDER_EXTERNAL_URL || 'https://whatsapp-wrapper-9c6j.onrender.com';
+setInterval(() => {
+  console.log('[DEBUG] Sending keep-alive ping to prevent sleep...');
+  fetch(RENDER_URL).catch(err => console.error('Keep-alive ping failed:', err.message));
+}, 14 * 60 * 1000); // 14 minutes
+
 // Start server then connect WhatsApp
 app.listen(PORT, () => {
   console.log(`🚀 Express server running on port ${PORT}`);
