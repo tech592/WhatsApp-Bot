@@ -1,3 +1,6 @@
 #!/usr/bin/env bash
-# We skip chromium download here, we will handle it via .puppeteerrc.cjs
+# Install node modules
 npm install
+
+# Force puppeteer to download Chrome into our configured cache directory
+npx puppeteer browsers install chrome
