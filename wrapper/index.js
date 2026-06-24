@@ -171,7 +171,15 @@ app.post('/send', async (req, res) => {
       ? to 
       : to.replace('+', '') + '@s.whatsapp.net';
 
-    await sock.sendMessage(jid, { text });
+    // Extract mentions from the text if any
+    const mentions = [];
+    const mentionRegex = /@(\d+)/g;
+    let match;
+    while ((match = mentionRegex.exec(text)) !== null) {
+      mentions.push(match[1] + '@s.whatsapp.net');
+    }
+
+    await sock.sendMessage(jid, { text, mentions });
     console.log(`Message sent to ${to}`);
     res.status(200).json({ success: true });
 
