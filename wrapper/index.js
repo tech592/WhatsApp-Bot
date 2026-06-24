@@ -17,11 +17,20 @@ if (!FIREBASE_WEBHOOK_URL) {
 
 // 1. Initialize WhatsApp Client
 // LocalAuth saves the session locally so you don't have to re-scan the QR code every time
+
+// Get the Chrome executable path from our top-level puppeteer package.
+// whatsapp-web.js uses its own nested puppeteer-core which can't find Chrome,
+// so we explicitly tell it where our installed Chrome binary is.
+const puppeteer = require('puppeteer');
+const chromePath = puppeteer.executablePath();
+console.log('[DEBUG] Chrome executable path:', chromePath);
+
 console.log('[DEBUG] Creating WhatsApp Client...');
 const client = new Client({
   authStrategy: new LocalAuth(),
   puppeteer: {
     headless: true,
+    executablePath: chromePath,
     args: [
       '--no-sandbox', 
       '--disable-setuid-sandbox',
