@@ -5,3 +5,4 @@ wrapper/.env
 lib/
 firebase-debug.log
 .firebase/
+secrets.md
