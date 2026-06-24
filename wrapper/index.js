@@ -72,11 +72,15 @@ async function connectToWhatsApp() {
         // Skip messages sent by us
         if (msg.key.fromMe) continue;
         
-        // Skip group messages
-        if (msg.key.remoteJid?.endsWith('@g.us')) continue;
-
-        // Extract sender phone number from JID (e.g., "919773353232@s.whatsapp.net")
-        const senderId = msg.key.remoteJid?.split('@')[0];
+        // Extract sender phone number
+        let senderId = null;
+        let groupId = null;
+        if (msg.key.remoteJid?.endsWith('@g.us')) {
+          senderId = msg.key.participant?.split('@')[0];
+          groupId = msg.key.remoteJid;
+        } else {
+          senderId = msg.key.remoteJid?.split('@')[0];
+        }
         if (!senderId) continue;
 
         // Extract message text
@@ -102,6 +106,7 @@ async function connectToWhatsApp() {
 
         const payload = {
           senderId: `+${senderId}`,
+          groupId, // Will be null for direct messages
           messageText,
           timestamp: new Date((msg.messageTimestamp || Date.now() / 1000) * 1000).toISOString(),
           isReply,
@@ -161,7 +166,10 @@ app.post('/send', async (req, res) => {
     }
 
     // Convert +1234567890 to 1234567890@s.whatsapp.net
-    const jid = to.replace('+', '') + '@s.whatsapp.net';
+    // If 'to' already contains an @ (like a group JID @g.us), leave it as is
+    const jid = to.includes('@') 
+      ? to 
+      : to.replace('+', '') + '@s.whatsapp.net';
 
     await sock.sendMessage(jid, { text });
     console.log(`Message sent to ${to}`);
