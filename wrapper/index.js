@@ -109,16 +109,18 @@ async function connectToWhatsApp() {
           replyToMessageText
         };
 
-        console.log(`Forwarding message from ${payload.senderId} to Firebase...`);
+        addLog(`Forwarding message from ${payload.senderId} to Firebase...`);
 
-        await fetch(FIREBASE_WEBHOOK_URL, {
+        const response = await fetch(FIREBASE_WEBHOOK_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
+        
+        addLog(`Firebase response status: ${response.status}`);
 
       } catch (error) {
-        console.error('Error forwarding message to Firebase:', error.message);
+        addLog(`ERROR forwarding message to Firebase: ${error.message}`);
       }
     }
   });
@@ -171,9 +173,26 @@ app.post('/send', async (req, res) => {
   }
 });
 
+// Debug tools
+const recentLogs = [];
+function addLog(msg) {
+  const logStr = `[${new Date().toISOString()}] ${msg}`;
+  console.log(logStr);
+  recentLogs.unshift(logStr);
+  if (recentLogs.length > 50) recentLogs.pop();
+}
+
 // Health check
 app.get('/', (req, res) => {
   res.json({ status: clientReady ? 'connected' : 'disconnected' });
+});
+
+// View internal logs remotely
+app.get('/logs', (req, res) => {
+  res.send('<html><body style="background:#111;color:#0f0;font-family:monospace;white-space:pre-wrap;padding:20px">' + 
+    '<h3>Wrapper Internal Logs (Last 50)</h3>\n' + 
+    recentLogs.join('\n') + 
+    '</body></html>');
 });
 
 // Keep-alive self-ping to prevent Render from sleeping on the free tier
